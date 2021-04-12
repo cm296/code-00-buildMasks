@@ -16,6 +16,22 @@ local = 1
 mirror = 1
 convert = 0
 masktype='mirror'
+
+
+def makeDict_mod_pd(p):
+    path = p['filepath']+'/'+p['filename']
+    s={}
+    s['filepath'] = path[0]
+    s['category'] = p.object[0]
+    return s
+
+def makeDict_mod(p):
+    path = p.filepath+'/'+p.filename
+    s={}
+    s['filepath'] = path
+    s['category'] = p.object
+    return s
+
 def saveImageMasks():
     # print('Running Original Script')
     #takes model and loads the features for that image, needs path to of files in directory
@@ -64,6 +80,7 @@ def makeDict(path, category):
     return s
 
 def create_mask_horizontalband(s):
+    print('Building mask for', s['filepath'])
     atr = pd.read_csv(s['filepath']+'_atr.txt', sep=' # ', header=None,index_col=4,engine = 'python')
     #,usecols = [0,4],engine = 'python')
     #rename indices of atr when not matching out labels
@@ -91,8 +108,17 @@ def create_mask_horizontalband(s):
     ObjectInstanceMasks = load_ob_mask(atr,s)
     #build am objmask with only values for object of interest
     objMasks = [] #start building a mask with our values!
-    if (atr.loc[s['category'],1] != 0).any():
+
+    if (atr.loc[s['category'],1] != 0).any(): #If it's not in the column of object instances, then maybe it's in the part images?
         objMasks,mask_values = run_parts_imgs(s,atr,mask_values)
+
+    else: #If it is in the column of the object instances, check that there are no mismatched between segmentatio and object
+        if np.max(ObjectInstanceMasks) != np.max(atr[atr.iloc[:,1]==0].iloc[:,0]):
+            print('_atr file mislabeled for this object for cat and file: ', s['category'],s['filepath'])
+            with open('AtrFileMismatch.csv', 'a') as f:
+                f.write("%s,%s\n"%(s['category'],s['filepath']))
+            new_mask = []
+            return new_mask
     if mask_values: #if there are still values in main seg mask after removing the ones present in parts 1 and 2
         if isinstance(mask_values, np.int8):
             objMasks.append(ObjectInstanceMasks == mask_values)
@@ -104,10 +130,14 @@ def create_mask_horizontalband(s):
                     objMasks = np.logical_or(objMasks,ObjectInstanceMasks == i)    
     objMasks = np.squeeze(objMasks)
     new_mask = BuildImgMask_mirror(s, objMasks)
+    if new_mask.size == 0:
+        print('empty')
+        return new_mask
     new_mask = SaveMask(s,new_mask)
     return new_mask
 
 def BuildImgMask_mirror(s, objMasks):
+    strike = 0
     image_mask = Image.open(s['filepath']+'.jpg').convert('RGB')
     image_mask = np.array(image_mask)
     new_mask = np.zeros((image_mask.shape[0], image_mask.shape[1]))
@@ -161,34 +191,45 @@ def BuildImgMask_mirror(s, objMasks):
         firsthalf = np.arange(idx_Max, firsthalf_pt)
         secondhalf = np.arange(secondhalf_pt, idx_Min) 
 
+        # print('idx', idx)
+
         if sum(obj) < len(firsthalf) + len(secondhalf):
             firsthalf= firsthalf[:-1]
             # print('element removed')
+
+        
 
         whole_len = np.ceil(dist/2).astype(int)
         #First do the left or bottom side
         #Check that are within the bounds. if not, then copy from the other side
         if secondhalf_pt<0:
             # print('here1 a')
-            within_len = len(np.arange(checksize,idx_Min))
+            # within_len = len(np.arange(checksize,idx_Min))
             # firsthalf_pt = firsthalf_pt + np.abs(secondhalf_pt)
             beyond_len = len(secondhalf)
             within_len = len(np.arange(0,idx_Min))
-            repeats = whole_len // within_len
-            add = np.mod(whole_len,within_len).astype(int)
-            start =0
-            end = within_len 
-            end = end
-            for i in  np.arange(0,repeats):
-                # print('firsthalf[start:end]', firsthalf[0:within_len].astype(int))
-                #select only small portion
-                if height<=width: 
-                    new_mask[idx[start:end],:,:] = image_mask[secondhalf[0:within_len].astype(int),:,:] 
-                else:
-                    new_mask[:,idx[start:end],:] = image_mask[:,secondhalf[0:within_len].astype(int),:] 
-                start = end
-                end = start + within_len
-            new_mask[:,idx[start:start+add],:] = image_mask[:,secondhalf[0:add].astype(int),:] 
+            # print('within len', within_len)
+
+            if within_len != 0:
+                repeats = whole_len // within_len
+                # print('whole len', whole_len)
+                add = np.mod(whole_len,within_len).astype(int)
+                start =0
+                end = within_len 
+                end = end
+                for i in  np.arange(0,repeats):
+                    if height<=width: 
+                        new_mask[idx[start:end],:,:] = image_mask[secondhalf[-within_len:].astype(int),:,:] 
+                    else:
+                        new_mask[:,idx[start:end],:] = image_mask[:,secondhalf[-within_len:].astype(int),:] 
+                    start = end
+                    end = start + within_len
+                new_mask[:,idx[start:start+add],:] = image_mask[:,secondhalf[-add:].astype(int),:] 
+            else:
+                strike = 1;
+                print('segmentation mas is too big for: ', s['filepath'])
+                with open('SegMaskTooBig.csv', 'a') as f:
+                    f.write("%s,%s\n"%(s['category'],s['filepath']))
         else:
             # print('here1 b')
             if convert:
@@ -206,22 +247,30 @@ def BuildImgMask_mirror(s, objMasks):
             
             within_len = len(np.arange(idx_Max,checksize))
             first_repeats = whole_len // within_len
-            add = np.mod(whole_len,within_len).astype(int)
-            start = whole_len.astype(int) -1
-            end = whole_len +within_len -1
-            end = end.astype(int)
-            for i in  np.arange(0,first_repeats):
-                # print('firsthalf[start:end]', firsthalf[0:within_len].astype(int))
-                #select only small portion
-                if height<=width: 
-                    new_mask[idx[start:end],:,:] = image_mask[firsthalf[0:within_len].astype(int),:,:] 
-                else:
-                    # print('start:end',start, end)
-                    new_mask[:,idx[start:end],:] = image_mask[:,firsthalf[0:within_len].astype(int),:] 
-                start = end
-                end = start + within_len
-            new_mask[:,idx[start:start+add],:] = image_mask[:,firsthalf[0:add].astype(int),:] 
-            image = Image.fromarray(new_mask , 'RGB')
+
+            if within_len != 0:
+                add = np.mod(whole_len,within_len).astype(int)
+                start = whole_len.astype(int) -1
+                end = whole_len +within_len -1
+                end = end.astype(int)
+                for i in  np.arange(0,first_repeats):
+                    if height<=width: 
+                        new_mask[idx[start:end],:,:] = image_mask[firsthalf[0:within_len].astype(int),:,:] 
+                    else:
+                        new_mask[:,idx[start:end],:] = image_mask[:,firsthalf[0:within_len].astype(int),:] 
+                    start = end
+                    end = start + within_len
+                new_mask[:,idx[start:start+add],:] = image_mask[:,firsthalf[0:add].astype(int),:] 
+                image = Image.fromarray(new_mask , 'RGB')
+            else:
+                if strike:
+                    print('part 2 segmentation mas is too big for: ', s['filepath'])
+                    with open('SegMaskTooBig.csv', 'a') as f:
+                        f.write("%s,%s\n"%(s['category'],s['filepath']))
+                    image = []
+                    return image
+                else: 
+                    print('WHAT HAPPENS HERE?')
         else:
             # print('here2 b')
             if convert:
@@ -242,9 +291,9 @@ def BuildImgMask_mirror(s, objMasks):
                     new_mask[idx[-whole_len:],:,:] = image_mask[indices,:,:] 
                 
             else:
-                print('whole_len',whole_len)
-                print('idx length', len(idx))
-                print('indices length', len(indices))
+                # print('whole_len',whole_len)
+                # print('idx length', len(idx))
+                # print('indices length', len(indices))
                 if len(indices)>=whole_len:
                     new_mask[:,idx[-whole_len:],:] = image_mask[:,indices[0:whole_len],:] 
                     if np.mod(len(indices),whole_len):
@@ -264,12 +313,14 @@ def BuildImgMask_mirror(s, objMasks):
 def SaveMask(s,image):
     filepath = s['filepath'].split('/')
     if local:
-        limit = 6
+        limit = 4
     else:
         limit = 8
     filepath[0:limit] = []
+    print('filepath', filepath)
     SaveMaskPath = ['..','masks-ade-3', 'sceneConvexHull' + 'Only']
     SaveMaskPath = '/'.join( SaveMaskPath + filepath[:-1])
+    print('SaveMaskPath',SaveMaskPath)
     if not os.path.exists(SaveMaskPath):
         os.makedirs(SaveMaskPath)
     image.save(SaveMaskPath+'/'+filepath[-1]+'_'+s['category']+'_'+'sceneConvexHull'+'Only.jpg')
