@@ -13,10 +13,7 @@ import time
 
 #Code to produce masks of PaddedBeaconImages
 local = 1
-mirror = 1
-convert = 0
-masktype='mirror'
-
+SaveFolder = 'masks-ade-4'
 
 # def makeDict_mod_pd(p):
 #     path = p['filepath']+'/'+p['filename']
@@ -32,7 +29,8 @@ def makeDict_mod(p):
     s['category'] = p.object
     return s
 
-def saveImageMasks(cat = [],cond = []):
+#masktype are 'object', 'scene' or 'PaddedBeacon'
+def ProduceImageMasks(masktype = [],cat = []):
     # print('Running Original Script')
     #takes model and loads the features for that image, needs path to of files in directory
     if local:
@@ -45,33 +43,33 @@ def saveImageMasks(cat = [],cond = []):
         for c in tqdm(conditions):
             Ade_cat = Ade_subset.loc[Ade_subset.object == c,:].reset_index()
             # stimuli = Ade_subset.loc[Ade_subset.object ==c,'filepath']+'/'+Ade_subset.loc[Ade_subset.object ==c,'filename']
-            [create_mask(makeDict_mod(i[1]),cond,timestr) for i in Ade_cat.iterrows()]
+            [create_mask(makeDict_mod(i[1]),masktype,timestr) for i in Ade_cat.iterrows()]
     else: 
         Ade_cat = Ade_subset.loc[Ade_subset.object == cat,:].reset_index()
-        [create_mask(makeDict_mod(i[1]),cond,timestr) for i in Ade_cat.iterrows()]
+        [create_mask(makeDict_mod(i[1]),masktype,timestr) for i in Ade_cat.iterrows()]
 
 
 
 
-def create_mask(s,cond=[],timestr = '0000'):
-    print('Building mask for', s['filepath'])
-    objMasks = atr.wrapSegProcessing(s,timestr)
+def create_mask(s,masktype=[],timestr = '0000'):
+    # print('Building mask for', s['filepath'])
+    objMasks = atr.wrapSegProcessing(s,timestr,SaveFolder)
     if len(objMasks)==0:
         new_mask = []
         print('not mask possible')
         return new_mask
 
-    new_mask = msk.wrapProduceNewMask(s, objMasks,timestr)
+    new_mask = msk.wrapProduceNewMask(s, objMasks,masktype,timestr,SaveFolder)
     
     if new_mask.size == 0:
         print('empty')
         return new_mask
-    new_mask = SaveMask(s,new_mask)
+    new_mask = SaveMask(s,new_mask,SaveFolder,masktype)
     return new_mask
 
 
 
-def SaveMask(s,image):
+def SaveMask(s,image,SaveFolder,masktype):
     filepath = s['filepath'].split('/')
     if local:
         limit = 4
@@ -79,12 +77,12 @@ def SaveMask(s,image):
         limit = 8
     filepath[0:limit] = []
     # print('filepath', filepath)
-    SaveMaskPath = ['..','masks-ade-4', 'PaddedBeacon']
+    SaveMaskPath = ['..',SaveFolder, masktype ]
     SaveMaskPath = '/'.join( SaveMaskPath + filepath[:-1])
     # print('SaveMaskPath',SaveMaskPath)
     if not os.path.exists(SaveMaskPath):
         os.makedirs(SaveMaskPath)
-    image.save(SaveMaskPath+'/'+filepath[-1]+'_'+s['category']+'_'+'PaddedBeacon.jpg')
+    image.save(SaveMaskPath+'/'+filepath[-1]+'_'+s['category']+'_'+ masktype + '.jpg')
     return image
 
 

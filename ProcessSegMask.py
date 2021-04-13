@@ -8,14 +8,14 @@ import cv2
 import csv
 
 
-def wrapSegProcessing(s, Errortimestr):
-    ObjectInstanceMasks,atr = processAtr(s, Errortimestr)
-    objMasks = buildObjMask(s,ObjectInstanceMasks,atr,Errortimestr)
+def wrapSegProcessing(s, Errortimestr,SaveFolder):
+    ObjectInstanceMasks,atr = processAtr(s, Errortimestr,SaveFolder)
+    objMasks = buildObjMask(s,ObjectInstanceMasks,atr,Errortimestr,SaveFolder)
     return objMasks
 
 
 
-def processAtr(s, Errortimestr):
+def processAtr(s, Errortimestr,SaveFolder):
     atr = pd.read_csv(s['filepath']+'_atr.txt', sep=' # ', header=None,index_col=4,engine = 'python')
     #,usecols = [0,4],engine = 'python')
     #rename indices of atr when not matching out labels
@@ -30,16 +30,16 @@ def processAtr(s, Errortimestr):
     if s['category'] not in atr.index:
         print('can''t find label')
         
-        with open('../masks-ade-4/SegMasksNotFound_'+ Errortimestr +'.csv', 'a') as f:
+        with open('../'+SaveFolder+'/SegMasksNotFound_'+ Errortimestr +'.csv', 'a') as f:
             for key in s.keys():
                 f.write("%s,%s\n"%(key,s[key]))
         new_mask = []
         return new_mask
-    ObjectInstanceMasks = load_ob_mask(atr,s)
+    ObjectInstanceMasks = load_ob_mask(atr,s,SaveFolder)
     return ObjectInstanceMasks,atr
 
 
-def buildObjMask(s,ObjectInstanceMasks,atr,Errortimestr):
+def buildObjMask(s,ObjectInstanceMasks,atr,Errortimestr,SaveFolder):
 	# get the index from the _atr.txt file that identifies object in image
     if not atr.loc[s['category'],0].astype('int8').shape:                
         mask_values = atr.loc[s['category'],0].astype('int8')
@@ -55,7 +55,7 @@ def buildObjMask(s,ObjectInstanceMasks,atr,Errortimestr):
     else: #If it is in the column of the object instances, check that there are no mismatched between segmentatio and object
         if np.max(ObjectInstanceMasks) != np.max(atr[atr.iloc[:,1]==0].iloc[:,0]):
             print('_atr file mislabeled for this object for cat and file: ', s['category'],s['filepath'])
-            with open('../masks-ade-4/AtrFileIndexError_'+ Errortimestr +'.csv', 'a') as f:
+            with open('../'+SaveFolder+'/AtrFileIndexError_'+ Errortimestr +'.csv', 'a') as f:
                 f.write("%s,%s\n"%(s['category'],s['filepath']))
             new_mask = []
             return new_mask
@@ -73,7 +73,7 @@ def buildObjMask(s,ObjectInstanceMasks,atr,Errortimestr):
 
 
 
-def load_ob_mask(atr,s):
+def load_ob_mask(atr,s,SaveFolder):
     col_parts = 1
     if (atr.loc[s['category'],col_parts] == 1).all(): #if it's a "part" object (such as mouse) then column 1 has nonzero, then load the parts image
         image_mask = Image.open(s['filepath']+'_parts_'+str(1)+'.png').convert('RGB')            
@@ -82,7 +82,7 @@ def load_ob_mask(atr,s):
         #if the file doesn't exist, report it and interrupt the function
         if not os.path.isfile(s['filepath']+'_parts_'+str(2)+'.png'):
             # print('parts_2 does not exist')
-            with open('../masks-ade-4/SegMasksNotFound.csv', 'a') as f:
+            with open('../'+SaveFolder+'/SegMasksNotFound.csv', 'a') as f:
                 for key in s.keys():
                     f.write("%s,%s\n"%(key,s[key]))
             return new_mask

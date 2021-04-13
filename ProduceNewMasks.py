@@ -9,38 +9,65 @@ from random import randrange
 import cv2
 from gluoncv.data.transforms import mask as tmask
 import csv
+import SceneMask_utils as scenemsk
 
 
-def wrapProduceNewMask(s, objMasks,Errortimestr,cond = 'PadBeacon'):
-    image = BuildImgMask_PadBeacon(s, objMasks,Errortimestr,cond)
+def wrapProduceNewMask(s, objMasks,masktype,Errortimestr ,SaveFolder):
+    image = BuildImgMask(s, objMasks,masktype,Errortimestr,SaveFolder)
     return image
 
 
-def BuildImgMask_PadBeacon(s, objMasks,Errortimestr,cond = 'PadBeacon'):
+def BuildImgMask(s, objMasks,masktype,Errortimestr,SaveFolder):
     strike = 0
     image_mask = Image.open(s['filepath']+'.jpg').convert('RGB')
     image_mask = np.array(image_mask)
-    if cond == 'PadBeacon':
-        new_mask = Execute_PadBeacon(s, image_mask,objMasks,Errortimestr)
-
+    if masktype == 'PadBeacon':
+        new_mask = Execute_PadBeacon(s, image_mask,objMasks,Errortimestr,SaveFolder)
+    elif masktype =='object':
+        new_mask = Execute_ObjectMask(s, image_mask,objMasks)
+    elif masktype =='scene':
+        new_mask = Execute_SceneMask(s, image_mask,objMasks)
     image = Image.fromarray(new_mask , 'RGB')
     return image
 
+def Execute_SceneMask(s, image_mask,objMasks):
+    new_mask = np.zeros((image_mask.shape[0], image_mask.shape[1]))
+    new_mask = np.repeat(new_mask[:, :, np.newaxis], 3, axis=2)
+    new_mask[objMasks==True] = 255. #make object white
+    thresh = scenemsk.blur_and_tresh(new_mask)
+    convex_hull_mask = scenemsk.compute_convex_hull(thresh)
+    mask_e = scenemsk.dilate_mask(convex_hull_mask)
+    mask_smoothed = scenemsk.smooth_mask(mask_e) #smooth mask
+    #Create random pixels and mask them
+    image = scenemsk.RndPixlMask(image_mask,mask_smoothed)
+    return image
 
-def Execute_PadBeacon(s, image_mask,objMasks,Errortimestr):
+
+def Execute_ObjectMask(s, image_mask,objMasks):
+    new_mask = np.zeros((image_mask.shape[0], image_mask.shape[1]))
+    new_mask = np.repeat(new_mask[:, :, np.newaxis], 3, axis=2)
+    new_mask[objMasks==True] = 255. #make object white
+    image = Image.open(s['filepath'] + '.jpg').convert('RGB')
+    image = np.array(image) 
+    image[new_mask == 0.]  = 170. #trying gray background
+    return image
+
+
+
+def Execute_PadBeacon(s, image_mask,objMasks,Errortimestr,SaveFolder):
     height,width,idx,obj,whole_len = getparam_PadBeacon(objMasks)
     new_mask, strike, secondhalf = runLeftBottom(height,width,image_mask,whole_len,idx)
     new_mask,strike = runRightTop(height,width,obj,image_mask,new_mask, secondhalf,whole_len,idx,strike)
     if strike: #check if size is too big and wirte in csv file
-        writeWarning_border(s,strike,Errortimestr)
+        writeWarning_border(s,strike,Errortimestr,SaveFolder)
     return new_mask
 
-def writeWarning_border(s,strike,Errortimestr):
+def writeWarning_border(s,strike,Errortimestr,SaveFolder):
     if strike ==1:
         print('segmentation mask is touches left or bottom border for: ', s['filepath'])
     elif strike == 2:
         print('segmentation mask touches right and left, top and bottom border for: ', s['filepath'])
-    with open('../masks-ade-4/PaddedBeacon/SegMaskTooBig'+ Errortimestr +'.csv', 'a') as f:
+    with open('../'+SaveFolder+'/PaddedBeacon/SegMaskTooBig'+ Errortimestr +'.csv', 'a') as f:
         f.write("%s,%s\n"%(s['category'],s['filepath']))
 
 
