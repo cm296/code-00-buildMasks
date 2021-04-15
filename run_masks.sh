@@ -39,6 +39,6 @@ conda activate ${baseDir}/my_plot_env
 # mkdir -p ${outDir}
 
 # blender -b ${blendFileDir}/${blendFilename}.blend -x 1 -o ${outDir}/${blendFilename} -a
-python ProduceMasks_script_noparallel.py object
+python ProduceImageMasks_script.py scene
 
 echo "Finished with job $SLURM_JOBID"

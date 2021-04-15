@@ -17,20 +17,17 @@ def blur_and_tresh(new_mask):
     thresh = (thresh).astype(np.uint8)
     thresh = cv2.cvtColor(thresh, cv2.COLOR_BGR2GRAY);
     return thresh
-
+# create hull array for convex hull points # calculate points for each contour
 def compute_convex_hull(thresh):
-	# create hull array for convex hull points
-	contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) # calculate points for each contour
-	hull = []
-	for i in range(len(contours)):
-		# creating convex hull object for each contour
-		hull.append(cv2.convexHull(contours[i], False))
-		# create an empty black image
-		new_mask_black = np.zeros((thresh.shape[0], thresh.shape[1], 3), np.uint8) 
-	#fill contours with white
-	cv2.fillPoly(new_mask_black, pts =hull, color=(255,255,255)); 
-	return new_mask_black
-
+    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    new_mask_black = np.zeros((thresh.shape[0], thresh.shape[1], 3), np.uint8) # create an empty black image
+    hull = []
+    # creating convex hull object for each contour
+    for i in range(len(contours)):
+        hull.append(cv2.convexHull(contours[i], False))
+    cv2.fillPoly(new_mask_black, pts =hull, color=(255,255,255)); 
+    return new_mask_black
+#fill contours with white
 
 
 def dilate_mask(new_mask, dilatation_size = 60):

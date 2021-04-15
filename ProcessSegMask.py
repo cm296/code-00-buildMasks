@@ -10,7 +10,10 @@ import csv
 
 def wrapSegProcessing(s, Errortimestr,SaveFolder):
     ObjectInstanceMasks,atr = processAtr(s, Errortimestr,SaveFolder)
-    objMasks = buildObjMask(s,ObjectInstanceMasks,atr,Errortimestr,SaveFolder)
+    if len(ObjectInstanceMasks)>0:
+        objMasks = buildObjMask(s,ObjectInstanceMasks,atr,Errortimestr,SaveFolder)
+    else:
+        objMasks = []
     return objMasks
 
 
@@ -33,8 +36,8 @@ def processAtr(s, Errortimestr,SaveFolder):
         with open('../'+SaveFolder+'/SegMasksNotFound_'+ Errortimestr +'.csv', 'a') as f:
             for key in s.keys():
                 f.write("%s,%s\n"%(key,s[key]))
-        new_mask = []
-        return new_mask
+        ObjectInstanceMasks = []
+        return ObjectInstanceMasks, atr
     ObjectInstanceMasks = load_ob_mask(atr,s,SaveFolder)
     return ObjectInstanceMasks,atr
 
@@ -120,7 +123,7 @@ def renameAtr_speed(atr,cat):
         for s in newgroup:
             # print('s1: ', s)
             # print('compare s and this cat:', thisCat, s)
-            if thisCat == s or thisCat == s+'s':
+            if thisCat == s or thisCat == s+'s'  or thisCat + 's' == s:
                 keeplooking = 0
                 # print('hereee1')
                 # print('thisCat printing: ', thisCat)
