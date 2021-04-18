@@ -25,12 +25,12 @@ def BuildImgMask(s, objMasks,masktype,Errortimestr,SaveFolder):
         new_mask = Execute_PadBeacon(s, image_mask,objMasks,Errortimestr,SaveFolder)
     elif masktype =='object':
         new_mask = Execute_ObjectMask(s, image_mask,objMasks)
-    elif masktype =='scene':
-        new_mask = Execute_SceneMask(s, image_mask,objMasks)
+    elif masktype =='scene' or masktype =='maskGray':
+        new_mask = Execute_SceneMask(s, image_mask,objMasks,masktype)
     image = Image.fromarray(new_mask , 'RGB')
     return image
 
-def Execute_SceneMask(s, image_mask,objMasks):
+def Execute_SceneMask(s, image_mask,objMasks,masktype):
     new_mask = np.zeros((image_mask.shape[0], image_mask.shape[1]))
     new_mask = np.repeat(new_mask[:, :, np.newaxis], 3, axis=2)
     new_mask[objMasks==True] = 255. #make object white
@@ -39,7 +39,8 @@ def Execute_SceneMask(s, image_mask,objMasks):
     mask_e = scenemsk.dilate_mask(convex_hull_mask)
     mask_smoothed = scenemsk.smooth_mask(mask_e) #smooth mask
     #Create random pixels and mask them
-    image = scenemsk.RndPixlMask(image_mask,mask_smoothed)
+    background = masktype
+    image = scenemsk.RndPixlMask(image_mask,mask_smoothed,background)
     return image
 
 
