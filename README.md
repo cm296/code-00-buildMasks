@@ -2,8 +2,8 @@
 
 ## Part of ExploringContextProject, builds masks from ADE20k Dataset based on a set of 81 object categories. Options are: object-only mask (scene covered), scene-only mask (object covered).
 
+## Execute ProduceImageMasks_script.py to run analysis and create object mask and pad beacon mask
+
 ## In scene-only option, it creates a convex hull around the object to eliminate shape information.
 
-## Also creates mask with gray background and object covered by noise.
-
-## It also runs a depth estimate model for images in ADE20k and creates depth images for the images of interest
+##Execute CreateAdeResampled.py to run the scene-only version from manuscript, which for each row of csv file saves path for an alternative image with same scene label

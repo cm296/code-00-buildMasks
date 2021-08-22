@@ -3,13 +3,8 @@ from PIL import Image
 import numpy as np
 import cv2
 
-
-# def find_contours(img):
-#     kernel   = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11,11))
-#     morphed  = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
-#     morphed = cv2.cvtColor(morphed, cv2.COLOR_BGR2GRAY);
-#     contours = cv2.findContours(morphed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-#     return contours[-2]
+#Cat Magri 2021
+#Utility functions to build scene segmentation masks
 
 def blur_and_tresh(new_mask):
     blur = cv2.blur(new_mask, (3, 3)) # blur the image
