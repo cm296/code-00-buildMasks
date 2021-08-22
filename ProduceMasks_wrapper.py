@@ -23,13 +23,14 @@ def ProduceImageMasks(masktype = [],cat = []):
     else:
         Ade_subset = pd.read_csv("../Ade20K_labels/Ade20K_labels_marcc.txt")
     timestr = time.strftime("%Y%m%d-%H%M%S")
+    #If no cagegory is specified, go through all categories
     if not cat:
         conditions = np.unique(Ade_subset.object)
         for c in tqdm(conditions):
             Ade_cat = Ade_subset.loc[Ade_subset.object == c,:].reset_index()
             # stimuli = Ade_subset.loc[Ade_subset.object ==c,'filepath']+'/'+Ade_subset.loc[Ade_subset.object ==c,'filename']
             [create_mask(makeDict_mod(i[1]),masktype,timestr) for i in Ade_cat.iterrows()]
-    else: 
+    else: #otherwise, focus on one specific category
         Ade_cat = Ade_subset.loc[Ade_subset.object == cat,:].reset_index()
         [create_mask(makeDict_mod(i[1]),masktype,timestr) for i in Ade_cat.iterrows()]
 
